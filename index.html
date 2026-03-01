@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="nl-BE">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactief Dashboard: Bouwproject X</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        body {
+            background-color: #f5f5f4; 
+            color: #292524;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+        .zone-btn {
+            transition: all 0.2s ease;
+        }
+        .zone-btn.active {
+            background-color: #ea580c; 
+            color: white;
+            border-color: #ea580c;
+            transform: translateX(4px);
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .mail-item {
+            border-left: 4px solid transparent;
+        }
+        .mail-item.active {
+            border-left-color: #ea580c;
+            background-color: #fffaf8;
+        }
+        .mail-item.unread {
+            background-color: #ffffff;
+            font-weight: 700;
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 10px; }
+        
+        .email-body {
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+        .notification-toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+            animation: slideUp 0.5s ease-out;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .audio-playing {
+            animation: pulse-orange 1.5s infinite;
+            background-color: #ffedd5 !important;
+            color: #ea580c !important;
+            border-color: #ea580c !important;
+        }
+        @keyframes pulse-orange {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col">
+
+    <header class="bg-stone-900 text-stone-100 py-4 shadow-md border-b-4 border-orange-600">
+        <div class="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-2">
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight text-white">Bouwproject X</h1>
+                <p class="text-stone-400 text-sm">Werfcommunicatie Portaal</p>
+            </div>
+            <div class="bg-stone-800 px-4 py-1.5 rounded-full border border-stone-700 flex items-center gap-2 text-orange-500">
+                <span id="current-date" class="text-sm font-bold tracking-widest uppercase">Laden...</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-6xl mx-auto px-4 py-6 w-full flex flex-col gap-6">
+
+        <!-- Statistieken -->
+        <section class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div class="bg-white rounded-xl shadow-sm p-4 border border-stone-200">
+                <p class="text-[10px] text-stone-500 uppercase font-bold tracking-wider mb-1">Status Project</p>
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl font-black text-orange-600">72%</span>
+                    <div class="flex-grow bg-stone-100 h-1.5 rounded-full overflow-hidden">
+                        <div class="bg-orange-600 h-full w-[72%]"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-4 border border-stone-200">
+                <p class="text-[10px] text-stone-500 uppercase font-bold tracking-wider mb-1">Ongelezen</p>
+                <p id="unread-count" class="text-2xl font-black text-blue-600">0</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-4 border border-stone-200">
+                <p class="text-[10px] text-stone-500 uppercase font-bold tracking-wider mb-1">Veiligheid</p>
+                <p class="text-2xl font-black text-green-600">A+</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-4 border border-stone-200">
+                <p class="text-[10px] text-stone-500 uppercase font-bold tracking-wider mb-1">Laatste Sync</p>
+                <p id="last-sync" class="text-2xl font-black text-stone-800">Net nu</p>
+            </div>
+        </section>
+
+        <!-- Mail Layout Inbox -->
+        <section class="bg-white rounded-2xl shadow-xl border border-stone-200 overflow-hidden flex flex-col h-[700px]">
+            <div class="bg-stone-100 border-b border-stone-200 p-4 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-orange-600 rounded-full flex items-center justify-center text-white font-bold shadow-sm">In</div>
+                    <h2 class="text-sm font-bold text-stone-800 uppercase tracking-widest">Werf Inbox</h2>
+                </div>
+                <div id="ai-status" class="invisible flex items-center gap-2 text-[10px] font-bold text-orange-600 animate-pulse">
+                    <span class="w-2 h-2 bg-orange-600 rounded-full"></span> AI ONDERAANNEMER ANTWOORDT...
+                </div>
+            </div>
+            
+            <div class="flex flex-grow overflow-hidden">
+                <!-- Mail Lijst -->
+                <div id="mail-list" class="w-1/3 border-r border-stone-200 overflow-y-auto bg-stone-50">
+                </div>
+
+                <!-- Mail Detail -->
+                <div id="mail-detail" class="w-2/3 flex flex-col bg-white overflow-y-auto relative">
+                    <div class="p-16 text-center text-stone-400 h-full flex flex-col justify-center">
+                        <div class="w-20 h-20 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg class="w-10 h-10 text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+                        </div>
+                        <p class="font-medium text-stone-600">Selecteer een bericht</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Werfzones -->
+        <section class="bg-white rounded-2xl shadow-sm p-6 border border-stone-200">
+            <h2 class="text-sm font-bold mb-6 text-stone-400 uppercase tracking-widest">Live Werfstatus</h2>
+            <div class="flex flex-col lg:flex-row gap-8">
+                <div class="lg:w-1/4 flex flex-col gap-3">
+                    <button class="zone-btn active bg-white border border-stone-200 text-stone-700 text-sm font-bold py-4 px-5 rounded-xl text-left flex justify-between items-center shadow-sm" onclick="showZone('ruwbouw', this)">
+                        <span>RUWBOUW</span><span id="stat-ruwbouw" class="text-orange-500 italic">85%</span>
+                    </button>
+                    <button class="zone-btn bg-white border border-stone-200 text-stone-700 text-sm font-bold py-4 px-5 rounded-xl text-left flex justify-between items-center shadow-sm" onclick="showZone('techniek', this)">
+                        <span>TECHNIEKEN</span><span id="stat-techniek" class="text-blue-500 italic">40%</span>
+                    </button>
+                    <button class="zone-btn bg-white border border-stone-200 text-stone-700 text-sm font-bold py-4 px-5 rounded-xl text-left flex justify-between items-center shadow-sm" onclick="showZone('veiligheid', this)">
+                        <span>VEILIGHEID</span><span class="text-green-500 italic">OK</span>
+                    </button>
+                    <button class="zone-btn bg-white border border-stone-200 text-stone-700 text-sm font-bold py-4 px-5 rounded-xl text-left flex justify-between items-center shadow-sm" onclick="showZone('planning', this)">
+                        <span>PLANNING</span><span class="text-stone-500 italic">W12</span>
+                    </button>
+                </div>
+                <div id="zone-content" class="lg:w-3/4 bg-stone-50 rounded-2xl p-8 border border-stone-200 min-h-[250px]"></div>
+            </div>
+        </section>
+    </main>
+
+    <div id="toast-container"></div>
+
+    <script>
+        const apiKey = ""; 
+        let activeMailId = null;
+        let isSpeaking = false;
+
+        // --- TTS Helper Functions ---
+        async function speakText(text, btnElement, gender) {
+            if (isSpeaking) return;
+            isSpeaking = true;
+            btnElement.classList.add('audio-playing');
+
+            const voiceName = gender === 'male' ? "Puck" : "Kore";
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+            
+            const payload = {
+                contents: [{ 
+                    parts: [{ 
+                        text: `Spreek de volgende tekst uit met een natuurlijk Vlaams accent (België). Gebruik een professionele toon voor op de bouwplaats: ${text}` 
+                    }] 
+                }],
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                    speechConfig: {
+                        voiceConfig: {
+                            prebuiltVoiceConfig: {
+                                voiceName: voiceName
+                            }
+                        }
+                    }
+                }
+            };
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                const audioData = result.candidates[0].content.parts[0].inlineData.data;
+                const mimeType = result.candidates[0].content.parts[0].inlineData.mimeType;
+                
+                const sampleRateMatch = mimeType.match(/rate=(\d+)/);
+                const sampleRate = sampleRateMatch ? parseInt(sampleRateMatch[1]) : 24000;
+                
+                const wavBlob = pcmToWav(audioData, sampleRate);
+                const audioUrl = URL.createObjectURL(wavBlob);
+                const audio = new Audio(audioUrl);
+                
+                audio.onended = () => {
+                    isSpeaking = false;
+                    btnElement.classList.remove('audio-playing');
+                };
+                
+                await audio.play();
+            } catch (error) {
+                console.error("TTS Error:", error);
+                isSpeaking = false;
+                btnElement.classList.remove('audio-playing');
+            }
+        }
+
+        function pcmToWav(base64Data, sampleRate) {
+            const buffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0)).buffer;
+            const wavHeader = new ArrayBuffer(44);
+            const view = new DataView(wavHeader);
+            const writeString = (offset, string) => {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            };
+            writeString(0, 'RIFF');
+            view.setUint32(4, 32 + buffer.byteLength, true);
+            writeString(8, 'WAVE');
+            writeString(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            writeString(36, 'data');
+            view.setUint32(40, buffer.byteLength, true);
+            return new Blob([wavHeader, buffer], { type: 'audio/wav' });
+        }
+
+        // --- PROCEDURAL GENERATOR ---
+        const categories = [
+            {
+                name: "Logistiek",
+                senders: [{name: "Beton Logistics", email: "planning@beton-log.be"}, {name: "Kraanverhuur Peeters", email: "info@peeters-kranen.be"}],
+                templates: [
+                    { subject: "Dringend: Lossen betonmixer", body: "Beste werfleider, de mixer staat momenteel voor een gesloten poort aan de noordzijde. Waar moet hij precies lossen voor de stort in {zone}?" },
+                    { subject: "Vertraging levering {materiaal}", body: "Beste, de levering van {materiaal} is vertraagd door een staking bij de verdeler. We komen pas {dag}." }
+                ]
+            },
+            {
+                name: "Techniek (RFI)",
+                senders: [{name: "Archistudio X", email: "support@archistudio.be"}, {name: "Studiebureau Stabilo", email: "ing@stabilo.be"}],
+                templates: [
+                    { subject: "Plandiscrepantie {zone}", body: "De maten op het bekistingsplan van {zone} komen niet overeen met het legplan van de architect. Welke maat moeten we aanhouden voor de uitvoering?" },
+                    { subject: "Alternatief voor {materiaal}", body: "De voorgeschreven {materiaal} is niet leverbaar. Is het voorgestelde alternatief technisch gelijkwaardig?" }
+                ]
+            }
+        ];
+
+        const zones = ["Volume 1", "Volume 2", "de technische schacht", "het auditorium", "de parkeerkelder"];
+        const materials = ["isolatieplaten", "gevelbeglazing", "ventilatieroosters", "stalen liggers"];
+        const days = ["morgen", "vrijdag", "aanstaande maandag"];
+
+        function getRandomItem(arr) {
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+
+        function generateProceduralMail() {
+            const category = getRandomItem(categories);
+            const template = getRandomItem(category.templates);
+            const sender = getRandomItem(category.senders);
+            const zone = getRandomItem(zones);
+            const material = getRandomItem(materials);
+            const day = getRandomItem(days);
+            let subject = template.subject.replace(/{zone}/g, zone).replace(/{materiaal}/g, material).replace(/{dag}/g, day);
+            let body = template.body.replace(/{zone}/g, zone).replace(/{materiaal}/g, material).replace(/{dag}/g, day);
+            return { sender: sender.name, email: sender.email, subject: `[${category.name}] ${subject}`, body: body };
+        }
+
+        let messages = [
+            { 
+                id: 1, 
+                sender: "Dakwerken Peeters", 
+                email: "info@peeters-dak.be", 
+                subject: "Lek ontdekt Volume 2", 
+                date: "Vandaag, 14:22", 
+                body: "Beste werfleider,\n\nWe hebben een probleem bij Volume 2. Door de wind is er een tijdelijke dichting losgekomen. Er is waterinfiltratie.\n\nKunnen we morgenochtend extra ploegen inzetten voor herstel?\n\nMet vriendelijke groeten,\n\nMarc Peeters", 
+                unread: true, 
+                thread: [] 
+            }
+        ];
+
+        // --- CORE LOGIC ---
+        function updateDateTime() {
+            const now = new Date();
+            const options = { day: '2-digit', month: 'short', year: 'numeric' };
+            document.getElementById('current-date').innerText = now.toLocaleDateString('nl-BE', options).toUpperCase();
+            const timeOptions = { hour: '2-digit', minute: '2-digit' };
+            document.getElementById('last-sync').innerText = now.toLocaleTimeString('nl-BE', timeOptions);
+        }
+
+        /**
+         * Verbeterde AI-logica met context-behoud
+         */
+        async function callGemini(fullThread, senderName, mailSubject) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            
+            // Bouw de context op uit de hele thread voor de AI
+            const contextString = fullThread.map(t => `${t.role === 'user' ? 'Werfleider' : senderName}: ${t.text}`).join("\n");
+            
+            const systemPrompt = `
+                Je bent ${senderName}, een onderaannemer op een grote bouwwerf in België. 
+                Het onderwerp van het gesprek is: "${mailSubject}".
+                
+                Huidige gesprekshistorie:
+                ${contextString}
+
+                REGELS:
+                1. Reageer kort, zakelijk en professioneel in het Vlaams (België).
+                2. Gebruik vaktermen (bijv. bekisting, betonstort, RFI, meetstaat, legplan).
+                3. Als de werfleider een instructie geeft of een vraag beantwoordt, bevestig dit dan of vraag naar de volgende stap.
+                4. Wees specifiek over maten of zones als die in de historie genoemd worden.
+                5. Eindig met een korte groet (bijv. "Mvg, ${senderName}" of "Met vriendelijke groeten").
+                6. Produceer GEEN metadata of uitleg, enkel de tekst van de reply-mail.
+            `;
+
+            const payload = { 
+                contents: [{ parts: [{ text: "Genereer een antwoord op het laatste bericht van de werfleider, rekening houdend met de bovenstaande historie." }] }], 
+                systemInstruction: { parts: [{ text: systemPrompt }] } 
+            };
+
+            // Implementatie van retry met exponential backoff
+            const fetchWithRetry = async (retries = 5, delay = 1000) => {
+                try {
+                    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!response.ok) throw new Error("API Fout");
+                    const result = await response.json();
+                    return result.candidates?.[0]?.content?.parts?.[0]?.text;
+                } catch (e) {
+                    if (retries > 0) {
+                        await new Promise(res => setTimeout(res, delay));
+                        return fetchWithRetry(retries - 1, delay * 2);
+                    }
+                    throw e;
+                }
+            };
+
+            try {
+                return await fetchWithRetry();
+            } catch (e) {
+                return `Bedankt voor uw bericht. We hebben het goed ontvangen en komen hier zo snel mogelijk op terug.\n\nMet vriendelijke groeten,\n${senderName}`;
+            }
+        }
+
+        function renderMailList() {
+            const list = document.getElementById('mail-list');
+            const unreadDisplay = document.getElementById('unread-count');
+            let unreadCount = 0;
+            list.innerHTML = messages.slice().reverse().map(m => {
+                if(m.unread) unreadCount++;
+                return `<div onclick="openMail(${m.id})" class="mail-item p-4 border-b border-stone-200 cursor-pointer hover:bg-white transition-all ${m.unread ? 'unread' : ''} ${activeMailId === m.id ? 'active' : ''}">
+                    <div class="flex justify-between items-start mb-1"><span class="text-sm text-stone-800 truncate pr-2">${m.sender}</span><span class="text-[10px] text-stone-400">${m.date}</span></div>
+                    <div class="text-xs text-orange-600 font-bold truncate mb-1">${m.subject}</div>
+                    <div class="text-[11px] text-stone-400 truncate">${m.body.substring(0, 40)}...</div>
+                </div>`;
+            }).join('');
+            unreadDisplay.innerText = unreadCount;
+        }
+
+        const audioSvg = '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.85 14,18.71V20.77C18.01,19.86 21,16.28 21,12C21,7.72 18.01,4.14 14,3.23M16.5,12C16.5,10.23 15.48,8.71 14,7.97V16.02C15.48,15.29 16.5,13.77 16.5,12M12,5L7,10H3V14H7L12,19V5Z"/></svg>';
+
+        function openMail(id) {
+            activeMailId = id;
+            const mail = messages.find(m => m.id === id);
+            mail.unread = false;
+            renderMailList();
+            
+            const threadHtml = mail.thread.map((t, idx) => {
+                const safeText = t.text.replace(/"/g, "'").replace(/\n/g, " ");
+                return `<div class="mb-8 ${t.role === 'user' ? 'ml-12' : 'mr-12'} fade-in">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="text-[10px] font-bold text-stone-400 uppercase">${t.role === 'user' ? 'U (WERFLEIDER)' : mail.sender.toUpperCase()}</div>
+                        <div class="flex gap-1.5">
+                            <button onclick="event.stopPropagation(); speakText(\`${safeText}\`, this, 'male')" title="Mannenstem" class="w-8 h-8 flex items-center justify-center rounded-xl bg-stone-100 text-stone-400 hover:bg-blue-50 hover:text-blue-600 transition-all border border-transparent">
+                                <div class="flex flex-col items-center">
+                                    <span class="text-[11px] font-bold leading-none mb-0.5">♂</span>
+                                    ${audioSvg}
+                                </div>
+                            </button>
+                            <button onclick="event.stopPropagation(); speakText(\`${safeText}\`, this, 'female')" title="Vrouwenstem" class="w-8 h-8 flex items-center justify-center rounded-xl bg-stone-100 text-stone-400 hover:bg-pink-50 hover:text-pink-600 transition-all border border-transparent">
+                                <div class="flex flex-col items-center">
+                                    <span class="text-[11px] font-bold leading-none mb-0.5">♀</span>
+                                    ${audioSvg}
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="${t.role === 'user' ? 'bg-orange-50 border-orange-100' : 'bg-stone-50 border-stone-100'} p-5 rounded-2xl border text-sm email-body shadow-sm">${t.text}</div>
+                </div>`;
+            }).join('');
+
+            const safeMailBody = mail.body.replace(/"/g, "'").replace(/\n/g, " ");
+
+            document.getElementById('mail-detail').innerHTML = `
+                <div class="p-8 flex flex-col h-full bg-white">
+                    <div class="border-b border-stone-100 pb-6 mb-8 flex justify-between items-start">
+                        <div>
+                            <h3 class="text-xl font-bold text-stone-800 mb-2">${mail.subject}</h3>
+                            <span class="text-sm font-bold text-stone-600">${mail.sender}</span> <span class="text-xs text-stone-400">(${mail.email})</span>
+                        </div>
+                        <div class="flex flex-col items-end">
+                             <span class="text-[10px] font-bold text-stone-300 mb-2 uppercase tracking-widest">${mail.date}</span>
+                             <div class="flex gap-2">
+                                <button onclick="speakText(\`${safeMailBody}\`, this, 'male')" class="flex items-center gap-2 px-3 py-2 bg-stone-100 rounded-xl text-stone-500 hover:bg-blue-50 hover:text-blue-600 transition-all shadow-sm border border-transparent font-bold">
+                                    <span class="text-lg leading-none">♂</span> ${audioSvg}
+                                </button>
+                                <button onclick="speakText(\`${safeMailBody}\`, this, 'female')" class="flex items-center gap-2 px-3 py-2 bg-stone-100 rounded-xl text-stone-500 hover:bg-pink-50 hover:text-pink-600 transition-all shadow-sm border border-transparent font-bold">
+                                    <span class="text-lg leading-none">♀</span> ${audioSvg}
+                                </button>
+                             </div>
+                        </div>
+                    </div>
+                    <div id="thread-container" class="flex-grow overflow-y-auto pr-4 mb-6">
+                        <div class="mb-8 mr-12">
+                            <div class="text-[10px] font-bold text-stone-400 mb-2 uppercase">${mail.sender}</div>
+                            <div class="bg-stone-50 p-5 rounded-2xl border border-stone-100 text-sm email-body shadow-sm">${mail.body}</div>
+                        </div>
+                        ${threadHtml}
+                    </div>
+                    <div class="border-t pt-6 relative">
+                        <textarea id="reply-text" class="w-full h-32 p-5 border-2 border-stone-100 rounded-3xl text-sm focus:border-orange-500 outline-none transition-all resize-none shadow-inner" placeholder="Typ een antwoord..."></textarea>
+                        <button onclick="sendReply(${id})" class="absolute bottom-4 right-4 bg-stone-900 text-white text-[10px] font-black px-6 py-3 rounded-2xl hover:bg-orange-600 transition-all shadow-lg">VERZENDEN</button>
+                    </div>
+                </div>`;
+            const c = document.getElementById('thread-container');
+            if(c) c.scrollTop = c.scrollHeight;
+        }
+
+        async function sendReply(id) {
+            const textarea = document.getElementById('reply-text');
+            const text = textarea.value.trim();
+            if(!text) return;
+            const mail = messages.find(m => m.id === id);
+            
+            // Voeg bericht toe aan lokale historie
+            mail.thread.push({ role: 'user', text: text });
+            openMail(id);
+            
+            // Toon AI status
+            document.getElementById('ai-status').classList.remove('invisible');
+            
+            // Roep de AI aan met de volledige historie
+            const aiReply = await callGemini(mail.thread, mail.sender, mail.subject);
+            
+            setTimeout(() => {
+                mail.thread.push({ role: 'ai', text: aiReply });
+                document.getElementById('ai-status').classList.add('invisible');
+                openMail(id);
+            }, 800);
+        }
+
+        function simulateNewMail() {
+            const generatedMail = generateProceduralMail();
+            const now = new Date();
+            const time = now.getHours().toString().padStart(2,'0') + ":" + now.getMinutes().toString().padStart(2,'0');
+            messages.push({ id: Date.now(), ...generatedMail, date: "Vandaag, " + time, unread: true, thread: [] });
+            renderMailList();
+            showToast(`Nieuw bericht: ${generatedMail.sender}`);
+        }
+
+        function showToast(msg) {
+            const t = document.createElement('div');
+            t.className = 'notification-toast bg-stone-900 text-white px-6 py-3 rounded-2xl shadow-2xl border-l-4 border-orange-500 text-xs font-bold uppercase tracking-wider';
+            t.innerText = msg;
+            document.getElementById('toast-container').appendChild(t);
+            setTimeout(() => t.remove(), 4000);
+        }
+
+        function showZone(key, btn) {
+            document.querySelectorAll('.zone-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const data = {
+                ruwbouw: "Bekisting fase 2 loopt op schema. Betonstort gepland voor woensdag.",
+                techniek: "Elektriciteitsslangen in verdieping 2 zijn geplaatst.",
+                veiligheid: "Huidige VGM score: 92%. Check randbeveiliging Volume 1.",
+                planning: "Kritiek pad: Dakdichting Volume 3 moet afgerond voor W14."
+            };
+            document.getElementById('zone-content').innerHTML = `<h3 class="text-lg font-black mb-4 uppercase tracking-tighter text-stone-800">${key}</h3><p class="text-stone-600 text-sm leading-relaxed">${data[key]}</p>`;
+        }
+
+        window.onload = () => {
+            updateDateTime();
+            renderMailList();
+            showZone('ruwbouw', document.querySelector('.zone-btn'));
+            setInterval(updateDateTime, 60000);
+            setInterval(simulateNewMail, 90000); 
+        };
+    </script>
+</body>
+</html>
